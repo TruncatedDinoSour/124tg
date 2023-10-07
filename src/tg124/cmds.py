@@ -10,4 +10,6 @@ cmds: Cmdmgr = Cmdmgr()
 
 @cmds.new
 async def ping(msg: Message) -> None:
+    """ping the bot"""
+
     await msg.reply_md(f"{msg.user.mention_markdown()} pong")
