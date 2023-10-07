@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """command manager"""
 
+import time
 import typing
 from functools import wraps
 
@@ -10,6 +11,28 @@ import telegram.ext as tg_ext
 
 from .conv import Convertor
 from .msg import Message
+
+
+async def get_admins(chat: tg.Chat | None, ttl: float = 900) -> set[int]:
+    """cached get_administrators api"""
+
+    if chat is None:
+        raise ValueError("no chat given")
+
+    if getattr(get_admins, "__cache__", None) is None:
+        get_admins.__cache__: dict[int, tuple[set[int], float]] = {}  # type: ignore
+
+    admins, last = get_admins.__cache__.get(chat.id, (None, 0))  # type: ignore
+
+    if admins is not None and time.time() - last < ttl:
+        return admins
+
+    admins = set(m.user.id for m in await chat.get_administrators())
+    last = time.time()
+
+    get_admins.__cache__[chat.id] = admins, last  # type: ignore
+
+    return admins
 
 
 class Cmdmgr:
@@ -34,7 +57,8 @@ class Cmdmgr:
         self.cmds["help"] = start
 
     def new(
-        self, fn: typing.Callable[..., typing.Coroutine[typing.Any, typing.Any, None]]
+        self,
+        fn: typing.Callable[..., typing.Coroutine[typing.Any, typing.Any, None]],
     ) -> typing.Callable[..., typing.Coroutine[typing.Any, typing.Any, None]]:
         if fn.__name__ in self.cmds:
             raise ValueError("command already assigned")
@@ -51,7 +75,7 @@ class Cmdmgr:
 
             args: dict[str, typing.Any] = {}
 
-            for line in (upt.message.text.split(maxsplit=1) + [""])[1].splitlines():  # type: ignore
+            for line in filter(bool, msg.text_no_cmd.split(";")):  # type: ignore
                 arg, val = line.split(":", 1)
                 typ: typing.Type[typing.Any] = fn.__annotations__.get(arg, str)
 
@@ -62,11 +86,29 @@ class Cmdmgr:
             try:
                 await fn(msg, **args)  # type: ignore
             except Exception as e:
-                await msg.reply(f"error !! `{e.__class__.__name__} -- {e}`")
+                await msg.reply(f"error !! `{e.__class__.__name__} -- {e}`", "markdown_v2")
                 raise e
 
         self.cmds[fn.__name__] = wrapper
-        return wrapper  # type: ignore
+        return wrapper
+
+    def admin(
+        self,
+        fn: typing.Callable[..., typing.Coroutine[typing.Any, typing.Any, None]],
+    ) -> typing.Callable[..., typing.Coroutine[typing.Any, typing.Any, None]]:
+        @self.new
+        @wraps(fn)
+        async def wrapper(msg: Message) -> None:
+            if msg.upt.effective_user is None:
+                raise ValueError("no effective user is executing this command")
+
+            if msg.upt.effective_user.id in await get_admins(msg.upt.effective_chat):
+                await fn(msg)
+                return
+
+            await msg.reply("u have no rights to execute this command")
+
+        return wrapper
 
     def init_app(self, app: typing.Any) -> None:
         for cname, cfn in self.cmds.items():

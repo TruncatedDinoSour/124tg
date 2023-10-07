@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """telegram message"""
 
-import textwrap
+import typing
 
 import telegram as tg
 import telegram.ext as tg_ext
@@ -16,12 +16,39 @@ class Message:
         upt: tg.Update,
         ctx: tg_ext.ContextTypes.DEFAULT_TYPE,
     ) -> None:
-        if upt.message is None or ctx.args is None:
+        if None in (upt.message, ctx.args, upt.effective_user):
             raise ValueError("invalid message ( missing update message or arguments )")
 
         self.upt: tg.Update = upt
         self.ctx: tg_ext.ContextTypes.DEFAULT_TYPE = ctx
 
-    async def reply(self, text: str, markdown: bool = False) -> None:
-        for page in textwrap.wrap(text, 1900, replace_whitespace=False):
-            await (self.upt.message.reply_markdown_v2 if markdown else self.upt.message.reply_text)(page)  # type: ignore
+    @property
+    def msg(self) -> tg.Message:
+        return self.upt.message  # type: ignore
+
+    @property
+    def text(self) -> str:
+        return self.msg.text or ""  # type: ignore
+
+    @property
+    def text_no_cmd(self) -> str:
+        return (self.text.split(maxsplit=1) + [""])[1]
+
+    @property
+    def user(self) -> tg.User:
+        return self.upt.effective_user  # type: ignore
+
+    async def reply(
+        self,
+        *args: typing.Any,
+        typ: str = "text",
+        **kwargs: typing.Any,
+    ) -> None:
+        await getattr(self.upt.message, f"reply_{typ}")(*args, **kwargs)
+
+    async def reply_md(
+        self,
+        *args: typing.Any,
+        **kwargs: typing.Any,
+    ) -> None:
+        await self.upt.message.reply_markdown(*args, **kwargs)  # type: ignore
