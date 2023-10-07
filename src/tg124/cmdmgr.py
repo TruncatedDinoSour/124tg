@@ -75,15 +75,15 @@ class Cmdmgr:
 
             args: dict[str, typing.Any] = {}
 
-            for line in filter(bool, msg.text_no_cmd.split(";")):  # type: ignore
-                arg, val = line.split(":", 1)
-                typ: typing.Type[typing.Any] = fn.__annotations__.get(arg, str)
-
-                args[arg] = (
-                    typ(val, msg).convert() if issubclass(typ, Convertor) else typ(val)
-                )
-
             try:
+                for line in filter(bool, msg.text_no_cmd.split(";")):  # type: ignore
+                    arg, val = (line.split(":", maxsplit=1) + [""])[:2]
+                    typ: typing.Type[typing.Any] = fn.__annotations__.get(arg, str)
+
+                    args[arg] = (
+                        typ(val, msg).convert() if issubclass(typ, Convertor) else typ(val)
+                    )
+
                 await fn(msg, **args)  # type: ignore
             except Exception as e:
                 await msg.reply(f"error !! `{e.__class__.__name__} -- {e}`", "markdown_v2")
