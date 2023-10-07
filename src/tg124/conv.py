@@ -27,4 +27,4 @@ class Boolean(Convertor):
         return bool(self)
 
     def __bool__(self) -> bool:
-        return self.what.lower() in ("1", "true")
+        return self.what.lower() in ("1", "true", "yes", "y", "ok")
