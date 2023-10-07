@@ -47,7 +47,8 @@ class Cmdmgr:
             """print help page / usage"""
 
             await msg.reply(
-                "\n".join(
+                "command syntax : /command arg:value;arg1:value 1;arg2:value 2\n\n"
+                + "\n".join(
                     f"/{cname} -- {cfn.__doc__ or 'no help provided'}"
                     for cname, cfn in self.cmds.items()
                     if cname != "start"
@@ -81,12 +82,14 @@ class Cmdmgr:
                     typ: typing.Type[typing.Any] = fn.__annotations__.get(arg, str)
 
                     args[arg] = (
-                        typ(val, msg).convert() if issubclass(typ, Convertor) else typ(val)
+                        typ(val, msg).convert()
+                        if issubclass(typ, Convertor)
+                        else typ(val)
                     )
 
                 await fn(msg, **args)  # type: ignore
             except Exception as e:
-                await msg.reply(f"error !! `{e.__class__.__name__} -- {e}`", "markdown_v2")
+                await msg.reply_md(f"error !! `{e.__class__.__name__} -- {e}`")
                 raise e
 
         self.cmds[fn.__name__] = wrapper
@@ -110,7 +113,15 @@ class Cmdmgr:
 
         return wrapper
 
-    def init_app(self, app: typing.Any) -> None:
+    async def init_app(self, app: typing.Any) -> None:
+        await app.bot.delete_my_commands()  # type: ignore
+        await app.bot.set_my_commands(  # type: ignore
+            tuple(
+                (cname, cfn.__doc__ or "no help provided")
+                for cname, cfn in self.cmds.items()
+            )
+        )
+
         for cname, cfn in self.cmds.items():
             app.add_handler(tg_ext.CommandHandler(cname, cfn))
 
