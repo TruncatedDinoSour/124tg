@@ -16,12 +16,15 @@ class Convertor(ABC):
         self.msg: Message = msg
 
     @abstractmethod
-    def convert(self) -> typing.Any:
+    async def convert(self) -> typing.Any:
         ...
 
 
 class Boolean(Convertor):
     """helps to convert boolean string literals to bools"""
 
-    def convert(self) -> bool:
+    async def convert(self) -> bool:
+        return bool(self)
+
+    def __bool__(self) -> bool:
         return self.what.lower() in ("1", "true")

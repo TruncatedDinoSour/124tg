@@ -82,7 +82,7 @@ class Cmdmgr:
                     typ: typing.Type[typing.Any] = fn.__annotations__.get(arg, str)
 
                     args[arg] = (
-                        typ(val, msg).convert()
+                        (await typ(val, msg).convert())
                         if issubclass(typ, Convertor)
                         else typ(val)
                     )
