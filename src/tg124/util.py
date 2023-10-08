@@ -3,13 +3,14 @@
 """utilities"""
 
 import asyncio
+import typing
 
 import aiohttp
 
 from . import const
 
 
-async def get_proxies() -> dict[str, str]:
+async def get_proxies() -> dict[str, typing.Union[int, str]]:
     async with aiohttp.ClientSession() as session:
         while True:
             async with session.get(const.PROXY_API) as resp:

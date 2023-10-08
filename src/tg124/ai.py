@@ -44,7 +44,7 @@ class TextAI(Enum):
     async def _inferkit(prompt: str) -> typing.Optional[str]:
         return await rebelai.ai.inferkit.standard(
             prompt=prompt,
-            length=1000,
+            length=1024,
             request_args=await util.get_proxies(),
         )
 
@@ -55,16 +55,9 @@ class TextAI(Enum):
             request_args=await util.get_proxies(),
         )
 
-    @staticmethod
-    async def _gpt3(prompt: str) -> typing.Optional[str]:
-        return await rebelai.ai.gpt.gpt3(
-            prompt=prompt,
-            request_args=await util.get_proxies(),
-        )
-
     alpaca7 = (_alpaca7,)
     deepai = (_deepai,)
-    gpt3 = (_gpt3,)
+    gpt3 = (rebelai.ai.gpt.gpt3,)
     gpt4 = (rebelai.ai.gpt.gpt4,)
     inferkit = (_inferkit,)
     falcon40 = (_falcon40,)
@@ -105,7 +98,7 @@ async def gen_ai_text(
 
             time.sleep(0.5)
 
-    return (r or "")[:2000].strip()
+    return (r or "")[:1900].strip()
 
 
 async def gen_ai_img(

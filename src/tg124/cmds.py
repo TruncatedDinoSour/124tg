@@ -33,6 +33,6 @@ async def ai(
     """generate ai text responses"""
 
     await msg.reply_md(
-        (await ai_impl.gen_ai_text(text, model, await regen.convert()))[:1900]
+        (await ai_impl.gen_ai_text(text, model, await regen.convert()))
         or "*no ai respose*"
     )
