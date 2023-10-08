@@ -3,6 +3,7 @@
 """telegram message"""
 
 import typing
+from functools import lru_cache
 
 import telegram as tg
 import telegram.ext as tg_ext
@@ -15,12 +16,19 @@ class Message:
         self,
         upt: tg.Update,
         ctx: tg_ext.ContextTypes.DEFAULT_TYPE,
+        *,
+        _check: bool = True,
     ) -> None:
-        if None in (upt.message, ctx.args, upt.effective_user):
+        if _check and None in (upt.message, ctx.args, upt.effective_user):
             raise ValueError("invalid message ( missing update message or arguments )")
 
         self.upt: tg.Update = upt
         self.ctx: tg_ext.ContextTypes.DEFAULT_TYPE = ctx
+
+    @classmethod
+    @lru_cache(1)
+    def empty(cls) -> "Message":
+        return cls(None, None, _check=False)  # type: ignore
 
     @property
     def msg(self) -> tg.Message:

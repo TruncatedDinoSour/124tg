@@ -2,11 +2,14 @@
 # -*- coding: utf-8 -*-
 """command manager"""
 
+import asyncio
 import time
 import typing
-from functools import wraps
+from enum import Enum
+from functools import wraps, lru_cache
 
 import telegram as tg
+import telegram.constants as tg_const
 import telegram.ext as tg_ext
 
 from .conv import Convertor
@@ -42,18 +45,36 @@ class Cmdmgr:
             str, typing.Callable[..., typing.Coroutine[typing.Any, typing.Any, None]]
         ] = {}
 
+        @lru_cache(1)
+        def _gen_help() -> str:
+            help_page: str = (
+                "command syntax : /command arg:value;arg1:value 1;arg2:value 2\n\n"
+            )
+
+            for cname, cfn in self.cmds.items():
+                if cname == "start":
+                    continue
+
+                help_page += f"/{cname}"
+
+                varnames: typing.Dict[str, typing.Type[typing.Any]] = cfn._fn.__annotations__.copy()  # type: ignore
+
+                del varnames["msg"]
+                del varnames["return"]
+
+                if varnames:
+                    help_page += " " + ", ".join(
+                        f"`{var}`(`{typ.__name__}`)" for var, typ in varnames.items()
+                    )
+
+                help_page += f" -- {cfn.__doc__ or '*no help provided*'}\n"
+
+            return help_page.strip()
+
         @self.new
         async def start(msg: Message) -> None:
             """print help page / usage"""
-
-            await msg.reply(
-                "command syntax : /command arg:value;arg1:value 1;arg2:value 2\n\n"
-                + "\n".join(
-                    f"/{cname} -- {cfn.__doc__ or 'no help provided'}"
-                    for cname, cfn in self.cmds.items()
-                    if cname != "start"
-                )
-            )
+            await msg.reply_md(_gen_help())
 
         self.cmds["help"] = start
 
@@ -74,6 +95,9 @@ class Cmdmgr:
         ) -> None:
             msg: Message = Message(upt=upt, ctx=ctx)
 
+            if upt.effective_chat:
+                await upt.effective_chat.send_action(tg_const.ChatAction.TYPING)
+
             args: dict[str, typing.Any] = {}
 
             try:
@@ -81,18 +105,24 @@ class Cmdmgr:
                     arg, val = (line.split(":", maxsplit=1) + [""])[:2]
                     typ: typing.Type[typing.Any] = fn.__annotations__.get(arg, str)
 
-                    args[arg] = (
-                        (await typ(val, msg).convert())
-                        if issubclass(typ, Convertor)
-                        else typ(val)
-                    )
+                    if issubclass(typ, Convertor):
+                        args[arg] = await typ(val, msg).convert()
+                    elif issubclass(typ, Enum):
+                        try:
+                            args[arg] = typ[val]
+                        except KeyError:
+                            pass
+                    else:
+                        args[arg] = typ(val)
 
-                await fn(msg, **args)  # type: ignore
+                asyncio.get_event_loop().create_task(fn(msg, **args))
             except Exception as e:
                 await msg.reply_md(f"error !! `{e.__class__.__name__} -- {e}`")
                 raise e
 
+        wrapper._fn = fn  # type: ignore
         self.cmds[fn.__name__] = wrapper
+
         return wrapper
 
     def admin(

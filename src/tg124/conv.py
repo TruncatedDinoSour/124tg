@@ -4,6 +4,7 @@
 
 import typing
 from abc import ABC, abstractmethod
+from functools import lru_cache
 
 from .msg import Message
 
@@ -28,3 +29,13 @@ class Boolean(Convertor):
 
     def __bool__(self) -> bool:
         return self.what.lower() in ("1", "true", "yes", "y", "ok")
+
+    @classmethod
+    @lru_cache(1)
+    def true(cls) -> "Boolean":
+        return cls("true", Message.empty())
+
+    @classmethod
+    @lru_cache(1)
+    def false(cls) -> "Boolean":
+        return cls("false", Message.empty())
